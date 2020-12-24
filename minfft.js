@@ -40,20 +40,17 @@ function minfftInverse( fourierSeries ) {
 
 	const N = fourierSeries.length;
 	const X = fourierSeries;
-	const x = Array(N*2);
+	const x = Array(N).fill(0);
 
-	for(var k=0; k<N; ++k) {
+	for(var n=0; n<N; ++n) {
 
-		X[k] = {re: 0, im: 0};
+		for(var k=0; k<N; ++k) {
 
-		for(var n=0; n<N; ++n) {
-
-			X[k].re += x[n] * Math.cos( -6.283185*k*n / N );
-			X[k].im += x[n] * Math.sin( -6.283185*k*n / N );
+			x[k] += X[k].re * Math.cos( 6.283185*k*n / N ) - X[k].im * Math.sin( 6.283185*k*n / N );
 		}
 	}
 
-	return X;
+	return x;
 }
 
 function minfftToFrequencySpectrum( fourierSeries ) {

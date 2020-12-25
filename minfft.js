@@ -1,71 +1,56 @@
 // Oscar Saharoy 2020
 
-function minfftPadZeros( inputArray ) {
+function fft( inputSignal, frequencySpectrum = true ) {
 
-	// pad a copy of inputArray with zeros up to the next power of 2, returning the new array
+    // radix-2 fast fourier transform
+    // future improvements: in-place fft, handling of non power of 2 signals, builtin windowing
 
-	const nextPowerOf2  = 2 ** Math.ceil( Math.log2( inputArray.length ) );
-	const numberOfZeros = nextPowerOf2 - inputArray.length;
+    const x = inputSignal; // input signal - must be power of 2
+    const N = x.length;    // sequence length
+    const X = Array(N);    // fourier coefficients (frequency domain)
 
-	return [ ...inputArray ].concat( new Array( numberOfZeros ).fill(0) );
-}
+    // handle base case where N==1
+    if( N == 1 )
+        return [ { re: x[0], im: 0 } ];
 
-function minfft( inputArray ) {
+    // split samples into even and odd
+    const evens = [];
+    const odds  = [];
 
-	var fftarray = minfftPadZeros( inputArray );
-	return mindft(inputArray);
-}
+    for(var i=0; i<N; ++i) {
 
-function mindft( inputArray ) {
+        if( i%2 ) odds.push( x[i] );
+        else     evens.push( x[i] );
+    }
 
-	const N = inputArray.length;
-	const x = inputArray;
-	const X = Array(N);
+    // do fft on even and odd samples
+    const E = fft(evens, false);
+    const O = fft(odds,  false);
 
-	for(var k=0; k<N; ++k) {
+    // butterfly the results in E and O
+    for(var k=0; k<N/2; ++k) {
 
-		X[k] = {re: 0, im: 0};
+        const Wre     = Math.cos( 6.283185*k/N );
+        const Wim     = Math.sin( 6.283185*k/N );
 
-		for(var n=0; n<N; ++n) {
+        const W_Ok_re = Wre * O[k].re - Wim * O[k].im;
+        const W_Ok_im = Wim * O[k].re + Wre * O[k].im;
 
-			X[k].re += x[n] * Math.cos( -6.283185*k*n / N );
-			X[k].im += x[n] * Math.sin( -6.283185*k*n / N );
-		}
-	}
+        X[k]          = {};
+        X[k].re       = E[k].re + W_Ok_re;
+        X[k].im       = E[k].im + W_Ok_im;
+  
+        X[k+N/2]      = {};
+        X[k+N/2].re   = E[k].re - W_Ok_re;
+        X[k+N/2].im   = E[k].im - W_Ok_im;
+    }
 
-	return X;
-}
+    // return the complex fourier coefficients if we don't want the frequency spectrum
+    if( !frequencySpectrum ) return X;
 
-function minfftInverse( fourierSeries ) {
+    // otherwise calculate spectrum and return
+    const p = X.slice(0, N/2 | 0).map( Xk => Math.sqrt( Xk.re**2 + Xk.im**2 ) * 2/N ); // power spectrum - amplitude of each frequency component up to N/2 (Nyquist freq)
+    p[0]   /= 2; // correct artefact on dc component
 
-	const N = fourierSeries.length;
-	const X = fourierSeries;
-	const x = Array(N).fill(0);
-
-	for(var n=0; n<N; ++n) {
-
-		for(var k=0; k<N; ++k) {
-
-			x[k] += X[k].re * Math.cos( 6.283185*k*n / N ) - X[k].im * Math.sin( 6.283185*k*n / N );
-		}
-	}
-
-	return x;
-}
-
-function minfftToFrequencySpectrum( fourierSeries ) {
-
-	const N = fourierSeries.length;
-	const X = fourierSeries;
-	var out = Array(N/2);
-
-	for(var k = 0; k < N/2; ++k) {
-
-		const re = X[k].re + (k ? X[N-k].re : 0);
-		const im = X[k].im - (k ? X[N-k].im : 0);
-
-		out[k] = Math.sqrt( re**2 + im**2 ) / N;
-	}
-
-	return out;
+    return p;
 }
